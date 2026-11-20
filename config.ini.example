@@ -1,0 +1,45 @@
+; Linux Archive Explorer configuration template (no passwords or secrets)
+; Installer generates /var/www/linux-archive-explorer/config.ini from these settings.
+; Never publish the generated config.ini or the protected data/users.json database.
+[application]
+base_url = "/linux-archive-explorer/"
+session_timeout = 1800
+default_format = "tar.gz"
+
+[auth]
+; Authentication stays enabled. Password hashes are kept in protected data/users.json.
+auth_bypass = false
+
+[paths]
+root = "/var/www/linux-archive-explorer"
+data = "/var/www/linux-archive-explorer/data"
+jobs = "/var/www/linux-archive-explorer/jobs"
+staging = "/var/www/linux-archive-explorer/staging"
+uploads = "/var/www/linux-archive-explorer/uploads"
+archives = "/var/www/linux-archive-explorer/archives"
+rollback = "/var/www/linux-archive-explorer/rollback"
+logs = "/var/www/linux-archive-explorer/logs"
+recovery = "/var/www/linux-archive-explorer/recovery"
+
+[system]
+archive_helper = "/var/www/linux-archive-explorer/current/bin/archive-helper.py"
+restore_helper = "/var/www/linux-archive-explorer/current/bin/restore-helper.py"
+use_sudo = true
+deployment = "lan"
+trusted_proxies = ""
+web_group = "www-data"
+
+[logging]
+max_bytes = 5242880
+backups = 2
+rotate_daily = true
+compress = false
+
+[limits]
+upload_max_bytes = 268435456
+upload_chunk_bytes = 8388608
+
+[updates]
+; Official repo check. If the repo has not been published, the icon simply stays steady.
+version_url = "https://raw.githubusercontent.com/TerryClaiborne/linux-archive-explorer/main/VERSION"
+release_url = "https://github.com/TerryClaiborne/linux-archive-explorer"

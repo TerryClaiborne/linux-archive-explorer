@@ -1,0 +1,37 @@
+# Linux Archive Explorer: user data and machine-specific credentials must NEVER enter Git.
+/config.ini
+/config/
+/data/
+/archives/
+/staging/
+/uploads/
+/jobs/
+/rollback/
+/logs/
+/recovery/
+# Local testing/build artifacts and release packages
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
+*.tar.gz
+*.tar.xz
+*.tar.zst
+*.zip
+*.sha256
+/*.tgz
+/.venv/
+/venv/
+.DS_Store
+
+# Distribution-only hashes: regenerate when packaging a tagged release
+/SHA256SUMS
+
+# Installed runtime lives inside the same Git checkout directory
+/current/
+/.current-old.*/
+/.release-new.*/
