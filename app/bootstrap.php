@@ -328,7 +328,7 @@ function lae_update_info(): array
     if ($url === '') return ['available' => false, 'current' => LAE_VERSION, 'latest' => null, 'release_url' => $release];
     lae_start_session();
     $cache = $_SESSION['lae_update_cache'] ?? null;
-    if (is_array($cache) && (time() - (int)($cache['checked_at'] ?? 0)) < 21600) return $cache['data'];
+    if (is_array($cache) && is_array($cache['data'] ?? null) && (time() - (int)($cache['checked_at'] ?? 0)) < 21600 && (($cache['data']['current'] ?? null) === LAE_VERSION)) return $cache['data'];
     $ctx = stream_context_create(['http' => ['timeout' => 3, 'user_agent' => 'Linux Archive Explorer/'.LAE_VERSION], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
     $raw = @file_get_contents($url, false, $ctx);
     $latest = $raw === false ? null : trim($raw);
