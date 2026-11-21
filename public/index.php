@@ -94,7 +94,7 @@ $isAdmin = ($currentUser['role'] ?? 'user') === 'admin';
         <div class="loading-state" id="loadingState">Loading folder…</div>
       </div>
 
-      <button class="selectionbar" id="selectionBar" type="button" data-tip="Use checkboxes to select items for Create Archive, Copy Selected, or Cut Selected. Paste is in the right-click menu.">
+      <button class="selectionbar" id="selectionBar" type="button" data-tip="Click to review or remove selected items before creating the archive.">
         <span class="checkbadge">✓</span><strong id="selectionCount">Selected: 0 items</strong><span class="dot">•</span><span id="selectionSize">0 B</span><span class="selectionhint">Review selected items</span>
       </button>
 

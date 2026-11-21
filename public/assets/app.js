@@ -274,28 +274,74 @@ function sortedEntries() {
   });
 }
 
+function addExplorerSelection(path,entry){
+  let changed=false;
+
+  // An explicitly selected child replaces any already-selected ancestor.
+  for(const existing of [...state.selected.keys()]){
+    if(existing===path)return false;
+    if(isDescendant(path,existing)){
+      state.selected.delete(existing);
+      changed=true;
+    }
+  }
+
+  // Selecting a parent makes separately selected descendants redundant.
+  if(entry.is_dir){
+    for(const existing of [...state.selected.keys()]){
+      if(isDescendant(existing,path)){
+        state.selected.delete(existing);
+        changed=true;
+      }
+    }
+  }
+
+  state.selected.set(path,{
+    path,
+    name:entry.name,
+    is_dir:entry.is_dir,
+    size:entry.size
+  });
+  return true;
+}
+
 function applyExplorerRange(items,index){
   const anchor=state.selectionAnchor;
   if(anchor===null||anchor<0||anchor>=items.length)return false;
+
   for(let i=Math.min(anchor,index);i<=Math.max(anchor,index);i++){
-    const item=items[i];if(!item.selectable)continue;
+    const item=items[i];
+    if(!item.selectable)continue;
     const p=pathJoin(state.currentPath,item.name);
-    state.selected.set(p,{path:p,name:item.name,is_dir:item.is_dir,size:item.size});
+    addExplorerSelection(p,item);
   }
+
   return true;
 }
+
 function selectExplorerRow(items,index,entry,ev){
   if(!entry.selectable)return;
+
   const path=pathJoin(state.currentPath,entry.name);
+
   if(ev.shiftKey&&applyExplorerRange(items,index)){
-    // keep anchor from the original click
+    // Keep the original range anchor.
   }else if(ev.ctrlKey||ev.metaKey){
-    if(state.selected.has(path))state.selected.delete(path);else state.selected.set(path,{path,name:entry.name,is_dir:entry.is_dir,size:entry.size});
+    if(state.selected.has(path)){
+      state.selected.delete(path);
+    }else{
+      addExplorerSelection(path,entry);
+    }
     state.selectionAnchor=index;
   }else{
-    state.selected.clear();state.selected.set(path,{path,name:entry.name,is_dir:entry.is_dir,size:entry.size});state.selectionAnchor=index;
+    // Normal click ADDS to the persistent archive basket.
+    addExplorerSelection(path,entry);
+    state.selectionAnchor=index;
   }
-  renderFiles();updateSelectionUI();maybeSuggestName();
+
+  renderFiles();
+  updateSelectionUI();
+  maybeSuggestName();
 }
 function renderFiles() {
   const tbody = $('fileRows');
@@ -319,9 +365,39 @@ function renderFiles() {
       <td>${formatModified(entry.modified)}</td>`;
     const cb = tr.querySelector('input[type=checkbox]');
     cb.addEventListener('click', (ev) => { ev.stopPropagation(); state.selectionAnchor=index; toggleSelection(path, entry, cb.checked); });
-    tr.addEventListener('click',ev=>{if(ev.target.closest('input,button,a'))return;selectExplorerRow(items,index,entry,ev);});
+
+    let folderClickTimer=null;
+
+    tr.addEventListener('click',ev=>{
+      if(ev.target.closest('input,button,a'))return;
+
+      if(entry.is_dir&&entry.browsable!==false){
+        const selectionEvent={
+          shiftKey:ev.shiftKey,
+          ctrlKey:ev.ctrlKey,
+          metaKey:ev.metaKey
+        };
+
+        clearTimeout(folderClickTimer);
+        folderClickTimer=setTimeout(()=>{
+          folderClickTimer=null;
+          selectExplorerRow(items,index,entry,selectionEvent);
+        },450);
+
+        return;
+      }
+
+      selectExplorerRow(items,index,entry,ev);
+    });
+
     if (entry.is_dir && entry.browsable!==false) {
-      tr.addEventListener('dblclick', (ev) => { if (!ev.target.matches('input')) navigate(path); });
+      tr.addEventListener('dblclick', (ev) => {
+        if (ev.target.matches('input')) return;
+        ev.preventDefault();
+        clearTimeout(folderClickTimer);
+        folderClickTimer=null;
+        navigate(path);
+      });
       if(isAdmin()){
         tr.addEventListener('dragover',ev=>{if(ev.dataTransfer&&ev.dataTransfer.types.includes('Files')){ev.preventDefault();ev.stopPropagation();tr.classList.add('drop-target');}});
         tr.addEventListener('dragleave',()=>tr.classList.remove('drop-target'));
@@ -426,8 +502,8 @@ async function navigate(path, addHistory = true, clearSearch = true) {
     const folderChanged = state.currentPath !== previousPath;
     let selectionChanged = false;
     if (folderChanged) {
-      selectionChanged = state.selected.size > 0;
-      state.selected.clear();
+      // Archive selections persist across all Linux folder navigation.
+      // The Shift-range anchor is local to the previous visible folder.
       state.selectionAnchor = null;
     } else {
       selectionChanged = reconcileCurrentFolderSelection();
@@ -462,24 +538,15 @@ function updateNavButtons() {
 }
 
 function toggleSelection(path, entry, add) {
-  if (add) {
-    // An explicit child selection replaces any selected ancestor. This matters
-    // after double-click navigation, because the folder used to enter the
-    // current directory may still be part of the cross-folder selection.
-    // Silently refusing the child makes its checkbox appear broken.
-    for (const existing of [...state.selected.keys()]) {
-      if (existing === path) { renderFiles(); return; }
-      if (isDescendant(path, existing)) state.selected.delete(existing);
-    }
-    // Selecting a parent makes separate descendants redundant.
-    if (entry.is_dir) {
-      for (const existing of [...state.selected.keys()]) if (isDescendant(existing, path)) state.selected.delete(existing);
-    }
-    state.selected.set(path, { path, name: entry.name, is_dir: entry.is_dir, size: entry.size });
-  } else {
+  if(add){
+    addExplorerSelection(path,entry);
+  }else{
     state.selected.delete(path);
   }
-  renderFiles(); updateSelectionUI(); maybeSuggestName();
+
+  renderFiles();
+  updateSelectionUI();
+  maybeSuggestName();
 }
 
 function updateSelectionUI() {
@@ -1970,7 +2037,24 @@ $('forwardBtn').onclick=()=>{if(state.historyIndex<state.history.length-1){state
 $('upBtn').onclick=()=>navigate(parentPath(state.currentPath));
 $('searchInput').addEventListener('input',queueSearch);
 $('searchSubfolders').addEventListener('change',queueSearch);
-$('selectAll').addEventListener('change',()=>{const add=$('selectAll').checked;for(const e of sortedEntries()){if(!e.selectable)continue;const p=pathJoin(state.currentPath,e.name);if(add){if(![...state.selected.keys()].some(existing=>existing===p||isDescendant(p,existing)))state.selected.set(p,{path:p,name:e.name,is_dir:e.is_dir,size:e.size});}else state.selected.delete(p);}renderFiles();updateSelectionUI();maybeSuggestName();});
+$('selectAll').addEventListener('change',()=>{
+  const add=$('selectAll').checked;
+
+  for(const e of sortedEntries()){
+    if(!e.selectable)continue;
+    const p=pathJoin(state.currentPath,e.name);
+
+    if(add){
+      addExplorerSelection(p,e);
+    }else{
+      state.selected.delete(p);
+    }
+  }
+
+  renderFiles();
+  updateSelectionUI();
+  maybeSuggestName();
+});
 document.querySelectorAll('.filetable th[data-sort]').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.sort;if(state.sort.key===key)state.sort.direction=state.sort.direction==='asc'?'desc':'asc';else state.sort={key,direction:'asc'};document.querySelectorAll('.sortmark').forEach(x=>x.textContent='');$(`sort-${key}`).textContent=state.sort.direction==='asc'?'▲':'▼';renderFiles();}));
 $('selectionBar').onclick=renderSelectionModal;
 $('clearSelection').onclick=()=>{state.selected.clear();renderFiles();updateSelectionUI();renderSelectionModal();maybeSuggestName();};
